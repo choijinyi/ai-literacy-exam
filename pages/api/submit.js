@@ -25,8 +25,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "답안이 없다." });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = process.env.GRADER_MODEL || "claude-sonnet-4-6";
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
   try {
     // 1) 앵커 자동 채점 (즉시)
