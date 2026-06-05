@@ -2,7 +2,7 @@
 import { scoreAnchors } from "../../lib/scoring.server.js";
 import { scoreRubrics } from "../../lib/rubrics.server.js";
 import { buildResultPdf } from "../../lib/pdf.server.js";
-import { uploadToDrive } from "../../lib/drive.server.js";
+import { saveResult } from "../../lib/store.server.js";
 
 export const config = {
   maxDuration: 60, // Vercel 함수 최대 실행 시간(초). LLM 10회 병렬 대비.
@@ -52,16 +52,16 @@ export default async function handler(req, res) {
 
     const payload = { name, studentId, submittedAt, anchor, rubric, total, max };
 
-    // 3) PDF 생성 + 드라이브 업로드 (실패해도 점수는 반환)
-    let drive = null;
-    let driveError = null;
+    // 3) PDF 생성 + 결과 저장(Vercel Blob). 저장 실패해도 점수는 반환.
+    let saved = false;
+    let saveError = null;
     try {
       const pdf = await buildResultPdf(payload);
-      const filename = `${sanitizeName(name)}_${sanitizeName(studentId)}_${Date.now()}.pdf`;
-      drive = await uploadToDrive(pdf, filename);
+      await saveResult(payload, pdf);
+      saved = true;
     } catch (e) {
-      driveError = String(e.message || e);
-      console.error("Drive/PDF 실패:", driveError);
+      saveError = String(e.message || e);
+      console.error("결과 저장 실패:", saveError);
     }
 
     return res.status(200).json({
@@ -71,8 +71,8 @@ export default async function handler(req, res) {
       anchor: { total: anchor.total, max: anchor.max },
       rubric: { total: rubric.total, max: rubric.max },
       perItem: buildClientBreakdown(anchor, rubric),
-      saved: !!drive,
-      driveError,
+      saved,
+      saveError,
     });
   } catch (e) {
     console.error(e);
