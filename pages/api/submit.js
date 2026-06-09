@@ -49,15 +49,17 @@ export default async function handler(req, res) {
     const total = anchor.total + rubric.total;
     const max = anchor.max + rubric.max;
     const submittedAt = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+    const ts = Date.now();
+    const status = rubric.failed ? "pending" : "done";
 
-    const payload = { name, studentId, submittedAt, anchor, rubric, total, max };
+    const payload = { ts, name, studentId, submittedAt, anchor, rubric, total, max };
 
-    // 3) PDF 생성 + 결과 저장(Vercel Blob). 저장 실패해도 점수는 반환.
+    // 3) PDF 생성 + 결과 저장(Vercel Blob). 답안도 함께 저장해 재채점 가능하게 한다.
     let saved = false;
     let saveError = null;
     try {
       const pdf = await buildResultPdf(payload);
-      await saveResult(payload, pdf);
+      await saveResult(payload, pdf, { answers, status });
       saved = true;
     } catch (e) {
       saveError = String(e.message || e);
@@ -70,6 +72,7 @@ export default async function handler(req, res) {
       max,
       anchor: { total: anchor.total, max: anchor.max },
       rubric: { total: rubric.total, max: rubric.max },
+      rubricPending: !!rubric.failed,
       perItem: buildClientBreakdown(anchor, rubric),
       saved,
       saveError,
